@@ -36,7 +36,8 @@ export async function fetchSheetData<T = any>(sheetName: string): Promise<T[]> {
     try {
         const response = await fetch(url);
         if (!response.ok) {
-            throw new Error(`Failed to fetch sheet: ${response.statusText}`);
+            const errorText = await response.text();
+            throw new Error(`Failed to fetch sheet: ${response.status} ${response.statusText} - ${errorText}`);
         }
         const data = await response.json();
 
@@ -51,6 +52,7 @@ export async function fetchUsers(): Promise<SheetUser[]> {
     return fetchSheetData<SheetUser>('Master');
 }
 
+
 export async function fetchDashboardData(): Promise<MicropartnerData[]> {
     const rawData = await fetchSheetData<SheetDataRaw>('CancelOrder(consignee)');
 
@@ -64,6 +66,43 @@ export async function fetchDashboardData(): Promise<MicropartnerData[]> {
         consignee: (row.Consigneename || row.Consignee || row.ConsigneeName || '').trim(), // Try all variations
         employee: (row.EmployeeName || row.Employee || '').trim(),
         totalAmt: parseFloat((row['Total Amount'] || row['Amount'] || row['TotalAmt'] || row['Net Amount'] || '0').replace(/[^0-9.-]+/g, '')) || 0,
-        // If there is an amount column, we should map it.
     }));
+}
+
+export async function fetchIndirectSaleData(): Promise<MicropartnerData[]> {
+    const rawData = await fetchSheetData<any>('Retailer Under Micro (Indirect Sale)');
+
+    return rawData.map(row => {
+        // Parse date from VoucherDate "2025-01-04 0:00"
+        let year = '';
+        let month = '';
+        
+        try {
+            const dateStr = row.VoucherDate;
+            if (dateStr) {
+                const date = new Date(dateStr);
+                if (!isNaN(date.getTime())) {
+                    year = date.getFullYear().toString();
+                    // Get short or long month name. The existing data likely uses full names or short, let's stick to short e.g. "Jan" or full "January". 
+                    // Looking at previous likely data, it might be safer to use consistent formatting. 
+                    // Let's use full month name to be safe or matches standard. 
+                    // Start with what Date gives us.
+                    month = date.toLocaleString('en-US', { month: 'short' }); 
+                }
+            }
+        } catch (e) {
+            console.error('Error parsing date', row.VoucherDate);
+        }
+
+        return {
+            year: year,
+            month: month,
+            accountName: (row.AccountName || '').trim(),
+            accountBeat: (row.Beat || '').trim(),
+            baseCat: (row.BaseCat || '').trim(),
+            consignee: (row.Parentname || '').trim(), // Using Parentname as Consignee
+            employee: (row.SalesMan_Cloud || '').trim(),
+            totalAmt: parseFloat((row.TotalAmount || '0').replace(/[^0-9.-]+/g, '')) || 0,
+        };
+    });
 }
