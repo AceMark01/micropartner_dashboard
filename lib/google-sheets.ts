@@ -102,7 +102,7 @@ export async function fetchIndirectSaleData(): Promise<MicropartnerData[]> {
             baseCat: (row.BaseCat || '').trim(),
             consignee: (row.Parentname || '').trim(), // Using Parentname as Consignee
             employee: (row.SalesMan_Cloud || '').trim(),
-            totalAmt: parseFloat((row.TotalAmount || '0').replace(/[^0-9.-]+/g, '')) || 0,
+            totalAmt: parseFloat((row.Amount || '0').replace(/[^0-9.-]+/g, '')) || 0,
         };
     });
 }
